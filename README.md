@@ -1,290 +1,141 @@
-# Codex Validator MCP Server
+# Codex Validator MCP
 
-MCP server that enables Claude Code to validate implementation plans using OpenAI Codex CLI, with Context7 integration for best practices validation and automatic fallback to OpenAI API when Codex Pro quota is exhausted.
+**Validate your implementation plans before writing a single line of code.**
 
-## Features
+An MCP server that lets Claude Code delegate plan validation to OpenAI Codex, catching architectural issues, missing dependencies, and best practice violations before implementation begins.
 
-- **Dual Execution Path**: Primary uses Codex CLI (browser OAuth), falls back to OpenAI API when Pro quota exhausted
-- **Apply Mode**: Option to apply suggested changes with confirmation workflow
-- **Context7 Integration**: Validates code against library/framework best practices
-- **Structured Output**: Both JSON (programmatic) and Markdown (human review) formats
-- **Technology Detection**: Automatically detects frameworks and libraries in plans
+## Why?
 
-## Prerequisites
+You've spent time crafting a detailed implementation plan. Before Claude Code executes it:
 
-### Codex CLI (Primary Path)
+- **Catch blockers early** — Missing dependencies, incompatible versions, architectural conflicts
+- **Get a second opinion** — Codex analyzes feasibility from a fresh perspective
+- **Validate against best practices** — Context7 checks your approach against official documentation
+- **Estimate complexity** — Know what you're getting into before committing
 
-Install the OpenAI Codex CLI:
+All without leaving your Claude Code workflow.
+
+## Quick Start
 
 ```bash
+# Clone and build
+git clone https://github.com/synergy2test/codex-validator-mcp.git
+cd codex-validator-mcp
+npm install && npm run build
+
+# Authenticate Codex CLI (one-time, opens browser)
 npm install -g @openai/codex
-```
-
-Authenticate via browser OAuth:
-
-```bash
 codex login
 ```
 
-This opens a browser window for you to log in to your OpenAI account. Your credentials are cached locally by the Codex CLI. No API key is needed for this path.
-
-### OpenAI API Key (Fallback Path)
-
-Set the `OPENAI_API_KEY` environment variable for fallback when Codex Pro quota is exhausted:
-
-```bash
-export OPENAI_API_KEY="sk-..."
-```
-
-**Note**: Using the fallback path may incur API costs.
-
-### Context7 API Key (Optional)
-
-For higher rate limits with Context7:
-
-```bash
-export CONTEXT7_API_KEY="your-context7-key"
-```
-
-Get a free API key at [context7.com/dashboard](https://context7.com/dashboard).
-
-## Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/codex-validator-mcp.git
-cd codex-validator-mcp
-
-# Install dependencies
-npm install
-
-# Build TypeScript
-npm run build
-```
-
-## Usage
-
-### Running the Server
-
-**Development:**
-```bash
-npm run dev
-# or
-node --loader ts-node/esm src/index.ts
-```
-
-**Production:**
-```bash
-npm run build
-npm start
-# or
-node dist/index.js
-```
-
-### Claude Code Configuration
-
-Add to your Claude Code settings (`.claude/settings.json` or global settings):
+Add to Claude Code settings (`~/.claude/settings.json`):
 
 ```json
 {
   "mcpServers": {
     "codex-validator": {
       "command": "node",
-      "args": ["/path/to/codex-validator-mcp/dist/index.js"],
-      "env": {
-        "OPENAI_API_KEY": "sk-...",
-        "CONTEXT7_API_KEY": "..."
-      }
+      "args": ["/path/to/codex-validator-mcp/dist/index.js"]
     }
   }
 }
 ```
 
-Or using `npx`:
+That's it. Now in Claude Code:
 
-```json
-{
-  "mcpServers": {
-    "codex-validator": {
-      "command": "npx",
-      "args": ["ts-node", "--esm", "/path/to/codex-validator-mcp/src/index.ts"],
-      "env": {
-        "OPENAI_API_KEY": "sk-..."
-      }
-    }
-  }
-}
+```
+Validate my PLAN.md before we implement it
 ```
 
-## Tool Reference
+## What You Get
 
-### `validate_plan`
-
-Validates an implementation plan using Codex with Context7 best practices integration.
-
-#### Parameters
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `plan_path` | string | Either plan_path or plan_content | - | Path to plan file (e.g., `./PLAN.md`) |
-| `plan_content` | string | Either plan_path or plan_content | - | Direct plan content as a string |
-| `project_path` | string | No | cwd | Root directory for context |
-| `apply_changes` | boolean | No | `false` | If true, apply suggested changes |
-| `require_confirmation` | boolean | No | `true` | If apply_changes=true, require user confirmation |
-
-#### Output
-
-**JSON Structure:**
 ```json
 {
-  "validation_status": "pass | warn | fail",
-  "execution_path": "codex_cli | openai_api",
-  "fallback_triggered": false,
-  "fallback_reason": null,
-  "mode": "suggest | apply",
-  "changes_applied": [],
+  "validation_status": "warn",
   "feasibility": {
-    "score": 85,
+    "score": 72,
     "blockers": [],
-    "risks": ["Potential memory issues with large datasets"],
-    "dependencies_missing": []
+    "risks": ["React 18 concurrent features may conflict with existing state management"],
+    "dependencies_missing": ["@tanstack/react-query"]
   },
   "code_review": {
-    "suggestions": [],
-    "best_practice_violations": [],
-    "improvements": ["Consider adding error boundary"]
+    "suggestions": ["Consider error boundaries for async components"],
+    "best_practice_violations": ["Direct DOM manipulation in useEffect"]
   },
   "implementation_analysis": {
-    "completeness": 90,
-    "gaps": [],
+    "completeness": 85,
+    "gaps": ["No rollback strategy defined"],
     "estimated_complexity": "medium"
-  },
-  "context7_validation": {
-    "technologies_detected": ["React", "TypeScript", "FastAPI"],
-    "best_practices_checked": [],
-    "violations": []
   }
 }
 ```
 
-**Markdown Report:** Saved to `./validation-report.md`
+Plus a human-readable `validation-report.md` saved to your project.
 
-### Example Usage
-
-**Suggest Mode (Default):**
-```
-Use validate_plan with plan_path: "./PLAN.md"
-```
-
-**Apply Mode with Confirmation:**
-```
-Use validate_plan with plan_path: "./PLAN.md", apply_changes: true
-```
-
-**Apply Mode without Confirmation:**
-```
-Use validate_plan with plan_path: "./PLAN.md", apply_changes: true, require_confirmation: false
-```
-
-**Direct Content:**
-```
-Use validate_plan with plan_content: "## Implementation Plan\n\n1. Create React component..."
-```
-
-## Architecture
+## How It Works
 
 ```
-src/
-├── index.ts                    # MCP server entry point
-├── tools/
-│   └── validate-plan.ts        # Main validation tool
-├── services/
-│   ├── codex.ts               # Codex CLI wrapper
-│   ├── execution-manager.ts   # CLI/API execution with fallback
-│   ├── context7.ts            # Context7 integration
-│   └── change-applier.ts      # Change confirmation workflow
-└── utils/
-    └── tech-detector.ts       # Technology detection
+┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
+│ Claude Code │────▶│ Codex Validator  │────▶│ Codex CLI   │
+│             │     │    MCP Server    │     │ (your quota)│
+└─────────────┘     └────────┬─────────┘     └─────────────┘
+                             │
+                             ▼
+                    ┌─────────────────┐
+                    │    Context7     │
+                    │ (best practices)│
+                    └─────────────────┘
 ```
 
-## Execution Flow
+1. Claude Code sends your plan to the MCP server
+2. Server passes it to Codex CLI for analysis (uses your OpenAI Pro quota)
+3. Context7 validates against framework/library best practices
+4. You get structured feedback before implementation
 
-1. **Input Validation**: Check plan_path or plan_content provided
-2. **Technology Detection**: Scan plan for frameworks/libraries
-3. **Codex Execution**:
-   - Try Codex CLI first (uses Pro plan quota via OAuth)
-   - Fall back to OpenAI API if quota exhausted
-4. **Context7 Validation**: Query best practices for detected technologies
-5. **Result Generation**: JSON + Markdown output
-6. **Report Save**: Write `validation-report.md`
+## Automatic Fallback
 
-## Fallback Behavior
-
-The server implements automatic fallback:
-
-1. **Primary**: Codex CLI (authenticated via `codex login`)
-   - Uses your OpenAI Pro plan quota
-   - No API key needed
-   - Full Codex capabilities
-
-2. **Fallback**: OpenAI API (when Pro quota exhausted)
-   - Requires `OPENAI_API_KEY` environment variable
-   - May incur API costs
-   - Replicates Codex-like analysis via chat completions
-
-The server automatically detects quota exhaustion from Codex CLI output and switches to the API fallback transparently.
-
-## Validation Status
-
-- **PASS**: Plan is ready for implementation
-- **WARN**: Plan has issues that should be addressed
-- **FAIL**: Plan has critical issues blocking implementation
-
-### Status Determination
-
-- `fail`: Codex execution failed, blockers found, feasibility < 40, or critical Context7 violations
-- `warn`: Feasibility 40-70 or Context7 warnings
-- `pass`: Feasibility >= 70, no blockers, no critical violations
-
-## Development
+When your Codex Pro quota runs out mid-month, the server automatically falls back to direct OpenAI API calls. Just set:
 
 ```bash
-# Type check
-npm run typecheck
-
-# Build
-npm run build
-
-# Run in development
-npm run dev
+export OPENAI_API_KEY="sk-..."
 ```
 
-## Troubleshooting
+You'll be notified when fallback activates (API costs may apply).
 
-### "Codex CLI not found"
+## Tool Parameters
 
-Install the Codex CLI:
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `plan_path` | string | — | Path to your plan file |
+| `plan_content` | string | — | Or pass plan content directly |
+| `project_path` | string | cwd | Project root for context |
+| `apply_changes` | boolean | false | Apply suggestions (with confirmation) |
+
+## Apply Mode
+
+Want Codex to fix issues it finds?
+
+```
+Validate PLAN.md with apply_changes: true
+```
+
+You'll be prompted to confirm each change before it's applied.
+
+## Optional: Context7 API Key
+
+For higher rate limits on best practices lookups:
+
 ```bash
-npm install -g @openai/codex
+export CONTEXT7_API_KEY="your-key"  # Free at context7.com/dashboard
 ```
 
-### "No execution path available"
+Works fine without it—just with lower rate limits.
 
-Either:
-1. Install and authenticate Codex CLI (`codex login`)
-2. Set `OPENAI_API_KEY` for fallback
+## Requirements
 
-### "Quota exhausted" errors
-
-If you see quota errors:
-1. Wait for your Pro plan quota to reset
-2. Or set `OPENAI_API_KEY` for automatic fallback
-
-### Context7 not returning results
-
-1. Check your internet connection
-2. Optionally set `CONTEXT7_API_KEY` for higher rate limits
-3. Context7 is optional - validation continues without it
+- Node.js 18+
+- [OpenAI Codex CLI](https://github.com/openai/codex) (`npm install -g @openai/codex`)
+- OpenAI account with Pro plan (or API key for fallback)
 
 ## License
 
